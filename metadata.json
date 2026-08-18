@@ -1,0 +1,6 @@
+{
+  "name": "ToolShed SA - Tool & Equipment Rental Marketplace",
+  "description": "South Africa's trusted online marketplace connecting tool owners and plant hire with local DIYers and contractors to rent equipment, save money, and earn income across Mzansi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

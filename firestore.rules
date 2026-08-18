@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(userId);
+      allow update: if isOwner(userId) && isValidId(userId);
+      allow delete: if isOwner(userId);
+    }
+
+    // 2. Tools Collection (Public Equipment Marketplace)
+    match /tools/{toolId} {
+      allow read: if true; // Public catalog browsing
+      allow create: if isSignedIn() && isValidId(toolId) && incoming().ownerId == request.auth.uid;
+      allow update: if isSignedIn() && isValidId(toolId) && (existing().ownerId == request.auth.uid || incoming().ownerId == request.auth.uid);
+      allow delete: if isSignedIn() && isValidId(toolId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 3. Bookings Collection
+    match /bookings/{bookingId} {
+      allow get: if isSignedIn() && isValidId(bookingId) && (
+        resource.data.renterId == request.auth.uid || resource.data.ownerId == request.auth.uid
+      );
+      allow list: if isSignedIn() && (
+        resource.data.renterId == request.auth.uid || resource.data.ownerId == request.auth.uid
+      );
+      allow create: if isSignedIn() && isValidId(bookingId) && (
+        incoming().renterId == request.auth.uid || incoming().ownerId == request.auth.uid
+      );
+      allow update: if isSignedIn() && isValidId(bookingId) && (
+        existing().renterId == request.auth.uid || existing().ownerId == request.auth.uid
+      );
+      allow delete: if isSignedIn() && isValidId(bookingId) && (
+        existing().renterId == request.auth.uid || existing().ownerId == request.auth.uid
+      );
+    }
+
+    // 4. Message Threads Collection
+    match /threads/{threadId} {
+      allow get: if isSignedIn() && isValidId(threadId) && (
+        request.auth.uid in resource.data.participantIds
+      );
+      allow list: if isSignedIn() && (
+        request.auth.uid in resource.data.participantIds
+      );
+      allow create: if isSignedIn() && isValidId(threadId) && (
+        request.auth.uid in incoming().participantIds
+      );
+      allow update: if isSignedIn() && isValidId(threadId) && (
+        request.auth.uid in existing().participantIds
+      );
+      allow delete: if isSignedIn() && isValidId(threadId) && (
+        request.auth.uid in existing().participantIds
+      );
+    }
+  }
+}
